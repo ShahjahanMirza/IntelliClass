@@ -10,6 +10,7 @@
     "preview": "npx vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.50.2",
     "@types/simple-peer": "^9.11.8",
     "axios": "^1.7.7",
