@@ -9,7 +9,6 @@ export default defineConfig({
     'process.env': {},
     'process.platform': '"browser"',
     'process.version': '"v18.0.0"',
-    'require': '((id) => { throw new Error(`Module "${id}" not found in browser environment`); })',
     '__dirname': '""',
     '__filename': '""',
   },
