@@ -1,0 +1,2 @@
+ALTER TABLE tickets
+ADD COLUMN class_name VARCHAR(255);

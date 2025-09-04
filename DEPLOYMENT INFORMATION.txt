@@ -1,0 +1,2 @@
+This is deployed on vercel : https://fyp-frontend-fawn.vercel.app/
+It is complete teachers section. Checked everything. Students section is incomplete. 
