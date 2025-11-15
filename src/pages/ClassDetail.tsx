@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { PlusIcon, FileTextIcon, CalendarIcon, UsersIcon, UserPlusIcon, Copy } from 'lucide-react';
+import { PlusIcon, FileTextIcon, CalendarIcon, UsersIcon, UserPlusIcon, Copy, VideoIcon, LogInIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getClassAssignments, getClassDetails, getClassGradesComprehensive, getStudentGrades, getClassMembersWithSubmissions, supabase, fixRLSForTeachers, getActiveVideoRoom, createNotification } from '../utils/supabase';
 import { toast } from 'react-toastify';
@@ -39,6 +39,10 @@ const ClassDetail = React.memo(() => {
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
   const [classMembers, setClassMembers] = useState<any[]>([]);
   const [isTeacher, setIsTeacher] = useState(false);
+  
+  // IntelliMeet integration state
+  const [activeIntelliMeet, setActiveIntelliMeet] = useState<any>(null);
+  const [isLoadingMeeting, setIsLoadingMeeting] = useState(false);
 
   // Video room state
   const [activeVideoRoom, setActiveVideoRoom] = useState<any>(null);
@@ -204,6 +208,18 @@ const ClassDetail = React.memo(() => {
         if (!videoRoomError && videoRoom) {
           setActiveVideoRoom(videoRoom);
         }
+        
+        // Check for active IntelliMeet session
+        const { data: activeMeeting, error: meetingError } = await supabase
+          .from('class_meetings')
+          .select('*')
+          .eq('intelliclass_class_id', classId)
+          .eq('is_active', true)
+          .maybeSingle();
+          
+        if (!meetingError && activeMeeting) {
+          setActiveIntelliMeet(activeMeeting);
+        }
       } catch (error) {
         console.error('Error fetching class data:', error);
       } finally {
@@ -212,6 +228,34 @@ const ClassDetail = React.memo(() => {
     };
     if (classId) {
       fetchClassData();
+      
+      // Subscribe to IntelliMeet session changes
+      const meetingSubscription = supabase
+        .channel(`class_meetings:${classId}`)
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'class_meetings',
+            filter: `intelliclass_class_id=eq.${classId}`
+          }, 
+          (payload) => {
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              if (payload.new.is_active) {
+                setActiveIntelliMeet(payload.new);
+              } else {
+                setActiveIntelliMeet(null);
+              }
+            } else if (payload.eventType === 'DELETE') {
+              setActiveIntelliMeet(null);
+            }
+          }
+        )
+        .subscribe();
+        
+      return () => {
+        meetingSubscription.unsubscribe();
+      };
     }
   }, [classId, user, isTeacherForClass]);
 
@@ -222,6 +266,22 @@ const ClassDetail = React.memo(() => {
       getActiveVideoRoom(classId).then(({ data }) => {
         setActiveVideoRoom(data);
       });
+    }
+  };
+  
+  const handleCreateIntelliMeetClassroom = () => {
+    // Redirect to IntelliMeet with class context
+    const intelliMeetUrl = `http://localhost:8080/?source=intelliclass&classId=${classId}&className=${encodeURIComponent(classInfo?.name || '')}&action=create`;
+    window.open(intelliMeetUrl, '_blank');
+    hotToast.success('Opening IntelliMeet to create classroom...');
+  };
+  
+  const handleJoinIntelliMeetClassroom = () => {
+    if (activeIntelliMeet?.intellimeet_meeting_code) {
+      // Redirect to IntelliMeet join page with meeting code
+      const intelliMeetUrl = `http://localhost:8080/join?code=${activeIntelliMeet.intellimeet_meeting_code}&source=intelliclass`;
+      window.open(intelliMeetUrl, '_blank');
+      hotToast.success('Opening IntelliMeet classroom...');
     }
   };
 
@@ -279,6 +339,62 @@ const ClassDetail = React.memo(() => {
           </div>
         </div>
       </div>
+      
+      {/* IntelliMeet Integration Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-600 p-3 rounded-full">
+              <VideoIcon className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900">Virtual Classroom</h3>
+              <p className="text-sm text-gray-600">
+                {isTeacher 
+                  ? 'Create a live video session for your class' 
+                  : activeIntelliMeet 
+                    ? 'Join the ongoing virtual classroom session' 
+                    : 'No active session at the moment'}
+              </p>
+            </div>
+          </div>
+          
+          <div>
+            {isTeacher ? (
+              <button
+                onClick={handleCreateIntelliMeetClassroom}
+                disabled={isLoadingMeeting}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg flex items-center space-x-2 hover:from-blue-700 hover:to-purple-700 transition-all shadow-md disabled:opacity-50"
+              >
+                <VideoIcon className="h-5 w-5" />
+                <span className="font-medium">Create Classroom</span>
+              </button>
+            ) : activeIntelliMeet ? (
+              <div className="flex flex-col items-end space-y-2">
+                <div className="flex items-center space-x-2 text-sm">
+                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-gray-700 font-medium">Live Session Active</span>
+                </div>
+                <button
+                  onClick={handleJoinIntelliMeetClassroom}
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-all shadow-md"
+                >
+                  <LogInIcon className="h-5 w-5" />
+                  <span className="font-medium">Join Classroom</span>
+                </button>
+                <div className="text-xs text-gray-500">
+                  Code: <span className="font-mono font-bold">{activeIntelliMeet.intellimeet_meeting_code}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-500 text-sm italic">
+                Waiting for teacher to start session...
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
       <div className="bg-white border border-gray-200 rounded-lg mb-6">
         <div className="flex border-b border-gray-200">
           <button className={`px-6 py-4 font-medium ${activeTab === 'assignments' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-blue-600'}`} onClick={() => setActiveTab('assignments')}>
