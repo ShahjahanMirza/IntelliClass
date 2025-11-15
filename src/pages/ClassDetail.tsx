@@ -271,7 +271,7 @@ const ClassDetail = React.memo(() => {
   
   const handleCreateIntelliMeetClassroom = () => {
     // Redirect to IntelliMeet with class context
-    const intelliMeetUrl = `http://localhost:8080/?source=intelliclass&classId=${classId}&className=${encodeURIComponent(classInfo?.name || '')}&action=create`;
+    const intelliMeetUrl = `https://intelli-meet-git-linking-intelliclass-shahjahanmirzas-projects.vercel.app/?source=intelliclass&classId=${classId}&className=${encodeURIComponent(classInfo?.name || '')}&action=create`;
     window.open(intelliMeetUrl, '_blank');
     hotToast.success('Opening IntelliMeet to create classroom...');
   };
@@ -279,7 +279,7 @@ const ClassDetail = React.memo(() => {
   const handleJoinIntelliMeetClassroom = () => {
     if (activeIntelliMeet?.intellimeet_meeting_code) {
       // Redirect to IntelliMeet join page with meeting code
-      const intelliMeetUrl = `http://localhost:8080/join?code=${activeIntelliMeet.intellimeet_meeting_code}&source=intelliclass`;
+      const intelliMeetUrl = `https://intelli-meet-git-linking-intelliclass-shahjahanmirzas-projects.vercel.app/join?code=${activeIntelliMeet.intellimeet_meeting_code}&source=intelliclass`;
       window.open(intelliMeetUrl, '_blank');
       hotToast.success('Opening IntelliMeet classroom...');
     }
